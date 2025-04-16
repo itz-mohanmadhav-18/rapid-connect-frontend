@@ -1,4 +1,3 @@
-
 type Coordinates = {
   latitude: number;
   longitude: number;
@@ -128,4 +127,45 @@ export const getNearbyEntities = (userLocation: Coordinates) => {
       }
     ]
   };
+};
+
+// Get address from coordinates using reverse geocoding
+export const getAddressFromCoordinates = async (
+  coords: Coordinates
+): Promise<string> => {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.latitude}&lon=${coords.longitude}&zoom=18&addressdetails=1`,
+      {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'RapidAidConnect'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch address');
+    }
+
+    const data = await response.json();
+    
+    // Format the address based on available data
+    if (data.address) {
+      const address = data.address;
+      // Create a readable location string
+      if (address.city || address.town) {
+        return `${address.city || address.town}${address.state ? ', ' + address.state : ''}`;
+      } else if (address.county) {
+        return `${address.county}${address.state ? ', ' + address.state : ''}`;
+      } else {
+        return data.display_name.split(',').slice(0, 2).join(',');
+      }
+    }
+    
+    return data.display_name || 'Unknown location';
+  } catch (error) {
+    console.error('Error fetching address:', error);
+    return 'Location unavailable';
+  }
 };

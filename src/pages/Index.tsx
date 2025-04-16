@@ -7,20 +7,25 @@ import RescueStats from "@/components/RescueStats";
 import Guidelines from "@/components/Guidelines";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, MapPin } from "lucide-react";
-import { getCurrentLocation } from "@/utils/locationService";
+import { AlertTriangle, MapPin, Loader2 } from "lucide-react";
+import { getCurrentLocation, getAddressFromCoordinates } from "@/utils/locationService";
 
 const Index: React.FC = () => {
   const [locationName, setLocationName] = useState<string | null>(null);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   
   useEffect(() => {
     const getLocationName = async () => {
       try {
+        setIsLoadingLocation(true);
         const coords = await getCurrentLocation();
-        
-        setLocationName("San Francisco, CA");
+        const address = await getAddressFromCoordinates(coords);
+        setLocationName(address);
       } catch (err) {
         console.error("Could not determine location:", err);
+        setLocationName("Location unavailable");
+      } finally {
+        setIsLoadingLocation(false);
       }
     };
     
@@ -42,12 +47,17 @@ const Index: React.FC = () => {
                 </span>
               </div>
               
-              {locationName && (
-                <div className="flex items-center text-sm">
-                  <MapPin className="h-4 w-4 mr-1" />
+              <div className="flex items-center text-sm">
+                <MapPin className="h-4 w-4 mr-1" />
+                {isLoadingLocation ? (
+                  <div className="flex items-center">
+                    <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                    <span>Detecting location...</span>
+                  </div>
+                ) : (
                   <span>Current location: {locationName}</span>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </section>

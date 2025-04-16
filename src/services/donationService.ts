@@ -7,6 +7,9 @@ export interface Donation {
     id: string;
     name: string;
   };
+  donationType?: 'resource' | 'cash';
+  amount?: number;
+  paymentId?: string;
   resources: Resource[];
   baseCamp: {
     id: string;
@@ -55,8 +58,8 @@ export const getById = async (id: string): Promise<Donation> => {
   return data.data;
 };
 
-// Create a new donation
-export const create = async (donationData: {
+// Create a new resource donation
+export const createResourceDonation = async (donationData: {
   resources: Resource[];
   baseCamp: string;
   scheduledDate: string;
@@ -64,7 +67,30 @@ export const create = async (donationData: {
   const response = await fetch(`${apiConfig.API_URL}/donations`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify(donationData)
+    body: JSON.stringify({
+      donationType: 'resource',
+      ...donationData
+    })
+  });
+  
+  const data = await handleApiResponse(response);
+  return data.data;
+};
+
+// Create a new cash donation
+export const createCashDonation = async (donationData: {
+  amount: number;
+  paymentId: string;
+  baseCamp: string;
+  scheduledDate: string;
+}): Promise<Donation> => {
+  const response = await fetch(`${apiConfig.API_URL}/donations`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({
+      donationType: 'cash',
+      ...donationData
+    })
   });
   
   const data = await handleApiResponse(response);
@@ -106,7 +132,8 @@ export const getByBaseCamp = async (baseCampId: string): Promise<Donation[]> => 
 export default {
   getAll,
   getById,
-  create,
+  createResourceDonation,
+  createCashDonation,
   update,
   remove,
   getByBaseCamp

@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,6 +10,7 @@ import VolunteerDashboard from "./pages/VolunteerDashboard";
 import ResponderDashboard from "./pages/ResponderDashboard";
 import { UserProvider } from "./contexts/UserContext";
 import ChatBot from "./components/ChatBot";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -23,9 +23,18 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/donor-dashboard" element={<DonorDashboard />} />
-            <Route path="/volunteer-dashboard" element={<VolunteerDashboard />} />
-            <Route path="/responder-dashboard" element={<ResponderDashboard />} />
+            
+            {/* Donor routes */}
+            <Route path="/donor-dashboard" element={<ProtectedRoute role="donor"><DonorDashboard /></ProtectedRoute>} />
+            <Route path="/donor-dashboard/donate" element={<ProtectedRoute role="donor"><DonorDashboard /></ProtectedRoute>} />
+            <Route path="/donor-dashboard/donations" element={<ProtectedRoute role="donor"><DonorDashboard /></ProtectedRoute>} />
+            
+            {/* Volunteer routes */}
+            <Route path="/volunteer-dashboard" element={<ProtectedRoute role="volunteer"><VolunteerDashboard /></ProtectedRoute>} />
+            
+            {/* Responder routes */}
+            <Route path="/responder-dashboard" element={<ProtectedRoute role="responder"><ResponderDashboard /></ProtectedRoute>} />
+            
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
