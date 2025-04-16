@@ -61,7 +61,7 @@ const SOSButton: React.FC = () => {
       
       // Pre-populate contact info if user is logged in
       if (user) {
-        form.setValue("contactInfo", user.phone || user.email || "");
+        form.setValue("contactInfo",  user.email || "");
       }
     }
   }, [isDialogOpen, toast, user, form]);
