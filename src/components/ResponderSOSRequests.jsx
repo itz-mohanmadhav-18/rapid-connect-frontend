@@ -164,12 +164,24 @@ const ResponderSOSRequests = () => {
       const originalRequest = requests.find(req => req.id === requestId);
       if (!originalRequest) return;
 
+      // Fix: Check if user exists and has an id property before using it
+      const assignedToId = user && user.id ? user.id : null;
+      if (!assignedToId) {
+        toast({
+          title: "Authentication Error",
+          description: "Your session may have expired. Please try logging in again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       await sosService.update(requestId, {
         status: "assigned",
-        assignedTo: user.id
+        assignedTo: assignedToId
       });
 
-      if (volunteer.id !== "demo") {
+      if (volunteer.id !== "mock-v1" && volunteer.id !== "mock-v2" && volunteer.id !== "mock-v3" && 
+          volunteer.id !== "mock-v4" && volunteer.id !== "mock-v5") {
         try {
           await volunteerService.updateStatus(volunteerId, false);
           await volunteerService.assignToTask(volunteerId, requestId, 'sos');
