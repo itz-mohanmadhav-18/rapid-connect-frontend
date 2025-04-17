@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -8,7 +7,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertTriangle, Bell, CheckCircle2, Clock, MapPin, Users, X } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { UserContext } from "@/contexts/UserContext";
+import axios from "axios";
+import { getAuthToken } from "@/lib/api-config";
+import apiConfig from "@/lib/api-config";
 
+const API_URL = apiConfig.API_URL;
+
+// Keeping the mock alerts as fallback if the API fails
 const mockAlerts = [
   {
     id: "alert1",
@@ -43,8 +49,10 @@ const mockAlerts = [
 ];
 
 const ResponderAlertGeneration = () => {
-  const [alerts, setAlerts] = useState(mockAlerts);
+  const [alerts, setAlerts] = useState([]);
   const [isCreatingAlert, setIsCreatingAlert] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [newAlert, setNewAlert] = useState({
     title: "",
     description: "",
@@ -52,8 +60,50 @@ const ResponderAlertGeneration = () => {
     severity: "medium",
   });
   const { toast } = useToast();
+  const { user } = useContext(UserContext);
 
-  const handleCreateAlert = () => {
+  // Fetch alerts from the backend
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        setIsLoading(true);
+        const token = getAuthToken(); // Use the helper function from api-config
+        
+        if (!token) {
+          throw new Error('Authentication token not found');
+        }
+        
+        const response = await axios.get(`${API_URL}/alerts`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.data && response.data.success) {
+          console.log("Alerts loaded from API:", response.data.data);
+          setAlerts(response.data.data);
+        } else {
+          throw new Error('Failed to fetch alerts');
+        }
+      } catch (err) {
+        console.error("Error fetching alerts:", err);
+        setError(err.message);
+        // Fall back to mock data if API fails
+        setAlerts(mockAlerts);
+        toast({
+          title: "Warning",
+          description: "Using sample data due to connection issues.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAlerts();
+  }, [toast]);
+
+  const handleCreateAlert = async () => {
     if (!newAlert.title || !newAlert.description || !newAlert.area) {
       toast({
         title: "Missing Information",
@@ -63,46 +113,118 @@ const ResponderAlertGeneration = () => {
       return;
     }
 
-    const alert = {
-      id: `alert-${Date.now()}`,
-      title: newAlert.title,
-      description: newAlert.description,
-      area: newAlert.area,
-      severity: newAlert.severity, // Fixed: This is now one of the allowed values
-      status: "active",
-      timestamp: "Just now",
-      affectedUsers: 0,
-    };
+    try {
+      const token = getAuthToken(); // Use the helper function from api-config
+      
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
 
-    setAlerts([alert, ...alerts]);
-    setIsCreatingAlert(false);
-    setNewAlert({
-      title: "",
-      description: "",
-      area: "",
-      severity: "medium",
-    });
+      // Prepare alert data with estimated affected users
+      const alertData = {
+        title: newAlert.title,
+        description: newAlert.description,
+        area: newAlert.area,
+        severity: newAlert.severity,
+        status: "active",
+        affectedUsers: Math.floor(Math.random() * 1000) + 100, // Random number for demo
+        location: {
+          type: 'Point',
+          coordinates: [77.1025, 28.7041], // Default coordinates (can be improved)
+          address: newAlert.area
+        }
+      };
 
-    toast({
-      title: "Alert Created",
-      description: "Emergency alert has been broadcast to all users in the affected area.",
-    });
+      // Send alert to backend
+      const response = await axios.post(
+        `${API_URL}/alerts`, 
+        alertData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (response.data && response.data.success) {
+        const createdAlert = response.data.data;
+        
+        // Add to local state
+        setAlerts(prevAlerts => [createdAlert, ...prevAlerts]);
+        
+        // Reset form
+        setIsCreatingAlert(false);
+        setNewAlert({
+          title: "",
+          description: "",
+          area: "",
+          severity: "medium",
+        });
+        
+        toast({
+          title: "Alert Created",
+          description: "Emergency alert has been broadcast to all users in the affected area.",
+        });
+      } else {
+        throw new Error('Failed to create alert');
+      }
+    } catch (err) {
+      console.error("Error creating alert:", err);
+      toast({
+        title: "Error",
+        description: err.message || "Failed to create alert. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleResolveAlert = (alertId) => {
-    setAlerts(prevAlerts => 
-      prevAlerts.map(alert => {
-        if (alert.id === alertId) {
-          return { ...alert, status: "resolved" };
+  const handleResolveAlert = async (alertId) => {
+    try {
+      const token = getAuthToken(); // Use the helper function from api-config
+      
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+      
+      // Update alert status in backend
+      const response = await axios.put(
+        `${API_URL}/alerts/${alertId}`,
+        { status: 'resolved' },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         }
-        return alert;
-      })
-    );
-
-    toast({
-      title: "Alert Resolved",
-      description: "Users will be notified that the emergency has been resolved.",
-    });
+      );
+      
+      if (response.data && response.data.success) {
+        // Update alert in local state
+        setAlerts(prevAlerts => 
+          prevAlerts.map(alert => {
+            if (alert._id === alertId) {
+              return { ...alert, status: "resolved" };
+            }
+            return alert;
+          })
+        );
+        
+        toast({
+          title: "Alert Resolved",
+          description: "Users will be notified that the emergency has been resolved.",
+        });
+      } else {
+        throw new Error('Failed to resolve alert');
+      }
+    } catch (err) {
+      console.error("Error resolving alert:", err);
+      toast({
+        title: "Error",
+        description: err.message || "Failed to resolve alert. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const getSeverityColor = (severity) => {
@@ -114,6 +236,27 @@ const ResponderAlertGeneration = () => {
       default: return "bg-muted text-muted-foreground";
     }
   };
+
+  const formatDate = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffHours = Math.round((now - date) / (1000 * 60 * 60));
+      
+      if (diffHours < 24) {
+        if (diffHours < 1) return "Just now";
+        return `${diffHours} hours ago`;
+      } else {
+        return date.toLocaleDateString();
+      }
+    } catch (err) {
+      return dateString || "Unknown";
+    }
+  };
+
+  if (isLoading) {
+    return <div className="py-8 text-center">Loading alerts...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -136,7 +279,7 @@ const ResponderAlertGeneration = () => {
               <Label htmlFor="alert-area">Affected Area</Label>
               <Input 
                 id="alert-area" 
-                placeholder="E.g., Downtown San Francisco"
+                placeholder="E.g., Downtown Delhi"
                 value={newAlert.area}
                 onChange={(e) => setNewAlert({...newAlert, area: e.target.value})}
               />
@@ -201,7 +344,7 @@ const ResponderAlertGeneration = () => {
         ) : (
           alerts.map(alert => (
             <div 
-              key={alert.id} 
+              key={alert._id || alert.id} 
               className={`p-4 border rounded-md ${
                 alert.status === "active" 
                   ? alert.severity === "critical" 
@@ -234,7 +377,7 @@ const ResponderAlertGeneration = () => {
                     </div>
                     <div className="flex items-center text-muted-foreground">
                       <Clock className="h-3.5 w-3.5 mr-1" />
-                      {alert.timestamp}
+                      {alert.timestamp || formatDate(alert.createdAt)}
                     </div>
                   </div>
                 </div>
@@ -259,7 +402,7 @@ const ResponderAlertGeneration = () => {
                       size="sm" 
                       variant="outline"
                       className="mt-2"
-                      onClick={() => handleResolveAlert(alert.id)}
+                      onClick={() => handleResolveAlert(alert._id || alert.id)}
                     >
                       <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
                       Resolve

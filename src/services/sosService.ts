@@ -67,15 +67,39 @@ export interface CreateSOSRequestData {
   emergency: string;
   description: string;
   location: {
-    coordinates: [number, number]; // [longitude, latitude]
+    coordinates: [number, number] | null; // [longitude, latitude] or null
     address: string;
   };
+  contactInfo?: string;
+  numberOfPeople?: number;
+  user?: string | null;
+  isAnonymous?: boolean;
+  status?: string;
 }
 
 export const create = async (sosData: CreateSOSRequestData): Promise<SOSRequest> => {
+  // Check if user is logged in
+  let headers;
+  try {
+    headers = getAuthHeaders();
+  } catch (error) {
+    // Fallback to non-authenticated request if no token available
+    headers = { 'Content-Type': 'application/json' };
+    
+    // Use anonymous endpoint if no auth token
+    return createAnonymous({
+      emergency: sosData.emergency,
+      description: sosData.description,
+      location: sosData.location,
+      contactInfo: sosData.contactInfo || "No contact info provided"
+    });
+  }
+
+  console.log("Sending SOS data to backend:", sosData); // Debug: Log what's being sent
+  
   const response = await fetch(`${apiConfig.API_URL}/sos`, {
     method: 'POST',
-    headers: getAuthHeaders(),
+    headers: headers,
     body: JSON.stringify(sosData)
   });
   
@@ -88,19 +112,32 @@ export interface CreateAnonymousSOSRequestData {
   emergency: string;
   description: string;
   location: {
-    coordinates: [number, number]; // [longitude, latitude]
+    type?: string; // Add type field 
+    coordinates: [number, number] | null; // [longitude, latitude]
     address: string;
   };
   contactInfo: string; // Phone number or other contact information
 }
 
 export const createAnonymous = async (sosData: CreateAnonymousSOSRequestData): Promise<SOSRequest> => {
+  // Ensure location format is correct for the backend
+  const formattedData = {
+    ...sosData,
+    location: {
+      type: "Point", // Required by backend model
+      coordinates: sosData.location.coordinates,
+      address: sosData.location.address
+    }
+  };
+  
+  console.log("Sending anonymous SOS data to backend:", formattedData);
+  
   const response = await fetch(`${apiConfig.API_URL}/sos/anonymous`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify(sosData)
+    body: JSON.stringify(formattedData)
   });
   
   const data = await handleApiResponse(response) as APIResponse<SOSRequest>;

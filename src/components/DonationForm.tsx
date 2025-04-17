@@ -197,13 +197,25 @@ const DonationForm: React.FC<DonationFormProps> = ({ onSuccess }) => {
   const onSubmitResourceDonation = async (values: DonationFormValues) => {
     setIsSubmitting(true);
     
+    // Make sure we're using the correct baseCamp value from state
     const donationData = {
       resources: values.resources,
-      baseCamp: values.baseCamp,
+      baseCamp: selectedBaseCamp || values.baseCamp, // Use selectedBaseCamp as priority
       scheduledDate: values.scheduledDate.toISOString(),
     };
     
-    resourceDonationMutation.mutate(donationData);
+    // Log what we're sending to help with debugging
+    console.log("Submitting resource donation data:", donationData);
+    
+    try {
+      await resourceDonationMutation.mutateAsync(donationData);
+      // The success handling is in the mutation configuration
+    } catch (error) {
+      console.error("Error submitting resource donation:", error);
+      // Error handling is in the mutation configuration
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Handle cash donation initiation
@@ -243,8 +255,16 @@ const DonationForm: React.FC<DonationFormProps> = ({ onSuccess }) => {
       scheduledDate: scheduledDate.toISOString(),
     };
     
-    cashDonationMutation.mutate(donationData);
-    setShowCashPayment(false);
+    // Log what we're sending to help with debugging
+    console.log("Submitting cash donation data:", donationData);
+    
+    try {
+      cashDonationMutation.mutate(donationData);
+      setShowCashPayment(false);
+    } catch (error) {
+      console.error("Error submitting cash donation:", error);
+      // Note: mutate (vs mutateAsync) handles errors through the mutation config
+    }
   };
 
   // Handle base camp selection
@@ -279,13 +299,14 @@ const DonationForm: React.FC<DonationFormProps> = ({ onSuccess }) => {
           {/* Common fields (outside Form context) */}
           <div className="mb-6 space-y-4">
             <div>
-              <Label htmlFor="baseCamp">Base Camp</Label>
+              <Label htmlFor="base-camp-select">Base Camp</Label>
               <Select 
+                id="base-camp-select"
                 onValueChange={handleBaseCampChange}
                 defaultValue={selectedBaseCamp}
                 disabled={isLoadingBaseCamps}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full" id="base-camp-select">
                   <SelectValue placeholder="Select a base camp to donate to" />
                 </SelectTrigger>
                 <SelectContent>
@@ -317,11 +338,11 @@ const DonationForm: React.FC<DonationFormProps> = ({ onSuccess }) => {
             </div>
 
             <div>
-              <Label htmlFor="scheduledDate">Scheduled Delivery Date</Label>
+              <Label htmlFor="scheduled-date">Scheduled Delivery Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
-                    id="scheduledDate"
+                    id="scheduled-date"
                     variant="outline"
                     className="w-full pl-3 text-left font-normal flex justify-between items-center"
                   >

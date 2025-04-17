@@ -19,7 +19,8 @@ interface UserContextType {
   isLoading: boolean;
 }
 
-const UserContext = createContext<UserContextType | undefined>(undefined);
+// Export the UserContext directly to be imported elsewhere
+export const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const useUser = () => {
   const context = useContext(UserContext);
